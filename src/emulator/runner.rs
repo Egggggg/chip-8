@@ -36,16 +36,41 @@ impl Emulator {
             let n3 = byte2 & 0x0F;
             let n4 = byte2 & 0xF0;
 
+            // prepare values before matching instructions
+            // all instructions with operands use some combination of this set
+            let x = n2;
+            let y = n3;
+            let n = n4;
+            let nn = (n3 << 4) + n4;
+            let nnn = ((n2 as u16) << 8) + ((n3 as u16) << 4) + n4 as u16;
+
             match (n1, n2, n3, n4) {
                 (0x0, 0x0, 0xE, 0x0) => {
-                    // 00E0 - clear screen
+                    // 00E0 - Clear screen
                     self.display.clear();
                     display_changed = true;
                 }
-                (0x1, n1, n2, n3) => {
-                    // 1NNN - jump
-                    // combine [0, n1, n2, n3] into a 16 bit address
-                    let addr = u16::from_be_bytes(&[0, n1, n2, n3]);
+                (0x1, ..) => {
+                    // 1NNN - Jump
+                    // Jump to memory address `NNN`
+                    self.counter = nnn as usize;
+                }
+                (0x6, ..) => {
+                    // 6XNN - Set register
+                    // Set register `VX` to `NN`
+                    self.reg[x as usize] = nn;
+                }
+                (0x7, ..) => {
+                    // 7XNN - Add to register
+                    // Add `NN` to register `VX`
+                    self.reg[x as usize] += nn;
+                }
+                (0xA, ..) => {
+                    // ANNN - Set index
+                    // Set index register `I` to `NNN`
+                }
+                (0xD, ..) => {
+                    // DXYN - Display
                 }
                 _ => continue,
             }

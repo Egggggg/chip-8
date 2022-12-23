@@ -43,5 +43,29 @@ impl EmuDisplay {
         self.refresh();
     }
 
-    pub fn draw(&mut self, sprite: &[u8]) {}
+    pub fn draw(&mut self, sprite: &[u8], coords: (u8, u8)) {
+        // a type for holding temporary "Scratch" data as bits to be iterated through
+        type Scratch = BitArr!(for 4, in u8, Msb0);
+
+        let mut scratch: Scratch = bitarr!(u8, Msb0; 0; 4);
+
+        // weird way to get dimensions for this display
+        let dim = match self {
+            Self::Chip8(_) => (64, 32),
+            Self::SuperChip(_) => (128, 64),
+        };
+
+        let x = coords.0 % dim.0;
+        let y = coords.1 % dim.1;
+
+        for byte in sprite {
+            // sprite bytes are always 0xX0
+            // we can shift it over to 0x0X to save space in scratch
+            let byte = byte >> 4;
+
+            scratch.store_be(byte);
+
+            for bit in scratch {}
+        }
+    }
 }

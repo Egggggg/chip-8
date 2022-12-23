@@ -72,8 +72,14 @@ impl Emulator {
                 }
                 (0xD, ..) => {
                     // DXYN - Display
-                    let coord_x = self.reg[x];
-                    let coord_y = self.reg[y];
+                    // Displays the sprite found in memory at I with height N in position (X,Y)
+                    let coords = (self.reg[x], self.reg[y]);
+
+                    // gets the sprite starting from I and going N pixels down
+                    // each byte is a row of pixels
+                    let sprite = &self.memory[self.index..self.index + n as usize];
+
+                    self.display.draw(sprite, coords);
                 }
                 _ => continue, // ignore unknown instructions
             }

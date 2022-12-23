@@ -7,6 +7,7 @@ use super::loader::SCRIPT_ADDR;
 pub struct Emulator {
     pub memory: [u8; 4096],     // 4096 bytes of ram
     pub display: EmuDisplay,    // display data will be adapted from here
+    pub index: u16,             // index register, used to access memory
     pub counter: usize, // program counter, the current place in memory that is being executed
     pub stack: VecDeque<usize>, // used for returning from subroutines
     pub timer: u8,      // delay timer, decremented at 60hz with display drawing
@@ -20,6 +21,7 @@ impl Emulator {
         Emulator {
             memory: [0; 4096],
             display,
+            index: 0,
             counter: SCRIPT_ADDR,
             stack: VecDeque::new(),
             timer: 255,

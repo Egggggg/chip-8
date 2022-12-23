@@ -7,6 +7,7 @@ impl Emulator {
         // this will be updated each cycle, so we can know when enough time has passed for a new one
         let mut tick = Instant::now();
         let mut display_tick = Instant::now();
+        let mut display_changed = false;
 
         loop {
             if tick.elapsed().as_micros() < self.tick_us as u128 {
@@ -18,7 +19,9 @@ impl Emulator {
 
             // when 1/60th of a second has passed, refresh display
             if display_tick.elapsed().as_micros() >= 16666 {
-                self.refresh_display();
+                if display_changed {
+                    self.refresh_display();
+                }
                 display_tick = Instant::now();
             }
 
@@ -37,6 +40,12 @@ impl Emulator {
                 (0x0, 0x0, 0xE, 0x0) => {
                     // 00E0 - clear screen
                     self.display.clear();
+                    display_changed = true;
+                }
+                (0x1, n1, n2, n3) => {
+                    // 1NNN - jump
+                    // combine [0, n1, n2, n3] into a 16 bit address
+                    let addr = u16::from_be_bytes(&[0, n1, n2, n3]);
                 }
                 _ => continue,
             }

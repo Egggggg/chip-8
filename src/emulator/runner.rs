@@ -1,4 +1,4 @@
-use super::model::Emulator;
+use super::Emulator;
 use std::time::Instant;
 
 impl Emulator {
@@ -38,11 +38,11 @@ impl Emulator {
 
             // prepare values before matching instructions
             // all instructions with operands use some combination of this set
-            let x = n2;
-            let y = n3;
+            let x = n2 as usize;
+            let y = n3 as usize;
             let n = n4;
-            let nn = (n3 << 4) + n4;
-            let nnn = ((n2 as u16) << 8) + ((n3 as u16) << 4) + n4 as u16;
+            let nn = byte2;
+            let nnn = ((n2 as u16) << 8) + byte2 as u16;
 
             match (n1, n2, n3, n4) {
                 (0x0, 0x0, 0xE, 0x0) => {
@@ -68,11 +68,14 @@ impl Emulator {
                 (0xA, ..) => {
                     // ANNN - Set index
                     // Set index register `I` to `NNN`
+                    self.index = nnn as usize;
                 }
                 (0xD, ..) => {
                     // DXYN - Display
+                    let coord_x = self.reg[x];
+                    let coord_y = self.reg[y];
                 }
-                _ => continue,
+                _ => continue, // ignore unknown instructions
             }
         }
     }

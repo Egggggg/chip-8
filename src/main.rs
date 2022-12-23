@@ -1,6 +1,6 @@
 mod emulator;
 
-use emulator::model::{EmuDisplay, Emulator};
+use emulator::{EmuDisplay, Emulator};
 
 fn main() {
     let display = EmuDisplay::new("chip8");

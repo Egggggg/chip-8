@@ -1,6 +1,6 @@
-use std::ops::{BitXor, BitXorAssign};
-
 use bitvec::prelude::*;
+
+use super::Emulator;
 
 const CHIP8_SIZE: usize = 64 * 32;
 const SUPERCHIP_SIZE: usize = 128 * 64;
@@ -28,22 +28,18 @@ impl EmuDisplay {
         }
     }
 
-    fn refresh(&mut self) {}
-
     pub fn clear(&mut self) {
         match self {
-            Self::Chip8(display) => {
-                *display = bitarr!(u64, Msb0; 0; CHIP8_SIZE);
+            Self::Chip8(buf) => {
+                *buf = bitarr!(u64, Msb0; 0; CHIP8_SIZE);
             }
-            Self::SuperChip(display) => {
-                *display = bitarr!(u64, Msb0; 0; SUPERCHIP_SIZE);
+            Self::SuperChip(buf) => {
+                *buf = bitarr!(u64, Msb0; 0; SUPERCHIP_SIZE);
             }
         }
-
-        self.refresh();
     }
 
-    pub fn draw(&mut self, sprite: &[u8], coords: (u8, u8)) {
+    pub fn draw(&mut self, sprite: &[u8], coords: (u8, u8)) -> u8 {
         // a type for holding temporary "Scratch" data as bits to be iterated through
         type Scratch = BitArr!(for 4, in u8, Msb0);
 
@@ -56,16 +52,105 @@ impl EmuDisplay {
         };
 
         let x = coords.0 % dim.0;
-        let y = coords.1 % dim.1;
+        let mut y = coords.1 % dim.1;
+        let mut carry = 0;
 
         for byte in sprite {
-            // sprite bytes are always 0xX0
-            // we can shift it over to 0x0X to save space in scratch
-            let byte = byte >> 4;
+            let pos = x as usize + y as usize * dim.0 as usize;
+            let offset = if x < dim.0 - 4 { 4 } else { dim.0 - x } as usize;
 
-            scratch.store_be(byte);
+            // get the slice of memory from the
+            let buf = match self {
+                Self::Chip8(buf) => buf.get_mut(pos..pos + offset).unwrap(),
+                Self::SuperChip(buf) => buf.get_mut(pos..pos + offset).unwrap(),
+            };
 
-            for bit in scratch {}
+            scratch.store_be(*byte);
+
+            for i in 0..4 {
+                let mut bit = buf.get_mut(i).unwrap();
+
+                if scratch[i] && *bit {
+                    *bit = false;
+                    carry = 1;
+                } else {
+                    *bit ^= scratch[i];
+                }
+            }
+
+            y += 1;
+
+            if y >= dim.1 {
+                break;
+            }
         }
+
+        carry
+    }
+}
+
+impl Emulator {
+    pub fn refresh_display(&mut self) {
+        let full = 0x00_FF_FF_FF;
+        let empty = 0;
+
+        match self.display {
+            EmuDisplay::Chip8(buf) => {
+                let len = 64 * 32;
+                let mut output: Vec<u32> = vec![0; len * 4];
+
+                for i in 0..len {
+                    let positions = self.scale_pixel(i, 64, 4);
+
+                    if buf[i] {
+                        for pos in positions {
+                            output[pos] = full;
+                        }
+                    } else {
+                        for pos in positions {
+                            output[pos] = empty;
+                        }
+                    }
+                }
+
+                self.window
+                    .update_with_buffer(&output[0..], 64, 32)
+                    .unwrap();
+            }
+            EmuDisplay::SuperChip(buf) => {
+                let len = 128 * 64;
+                let mut output: Vec<u32> = vec![0; len * 4];
+
+                for i in 0..len {
+                    let positions = self.scale_pixel(i, 128, 4);
+
+                    if buf[i] {
+                        for pos in positions {
+                            output[pos] = full;
+                        }
+                    } else {
+                        for pos in positions {
+                            output[pos] = empty;
+                        }
+                    }
+                }
+
+                self.window
+                    .update_with_buffer(&output[0..], 128, 64)
+                    .unwrap();
+            }
+        }
+    }
+
+    fn scale_pixel(&self, index: usize, width: usize, scale: usize) -> Vec<usize> {
+        let mut out: Vec<usize> = Vec::new();
+
+        for x in 0..scale {
+            for y in 0..scale {
+                out.push(index + (x * scale) + (y * width));
+            }
+        }
+
+        out
     }
 }

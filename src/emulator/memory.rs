@@ -1,3 +1,5 @@
+use super::Emulator;
+
 // the address to store the font at
 const FONT_ADDR: usize = 0x50;
 
@@ -24,27 +26,29 @@ const FONT: [u8; FONT_SIZE] = [
 ];
 
 // the address to store scripts at
-pub const SCRIPT_ADDR: usize = FONT_ADDR + FONT_SIZE;
+pub const SCRIPT_ADDR: usize = 0x200;
 
-/// Loads the font into memory
-///
-/// # Arguments
-///
-/// * `memory` - Simulated memory to load the font into
-pub fn load_font(memory: &mut [u8; 4096]) {
-    for i in 0..FONT_SIZE {
-        memory[FONT_ADDR + i] = FONT[i];
+impl Emulator {
+    /// Loads the font into memory
+    ///
+    /// # Arguments
+    ///
+    /// * `memory` - Simulated memory to load the font into
+    pub fn load_font(&mut self) {
+        for i in 0..FONT_SIZE {
+            self.memory[FONT_ADDR + i] = FONT[i];
+        }
     }
-}
 
-/// Loads a script into memory
-///
-/// # Arguments
-///
-/// * `memory` - Simulated memory to load the script into
-/// * `script` - Script to load into memory and then execute
-pub fn load_script(memory: &mut [u8; 4096], script: &[u8]) {
-    for i in 0..script.len() {
-        memory[SCRIPT_ADDR + i] = script[i];
+    /// Loads a script into memory
+    ///
+    /// # Arguments
+    ///
+    /// * `memory` - Simulated memory to load the script into
+    /// * `script` - Script to load into memory and then execute
+    pub fn load_script(&mut self, script: &[u8]) {
+        for i in 0..script.len() {
+            self.memory[SCRIPT_ADDR + i] = script[i];
+        }
     }
 }

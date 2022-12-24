@@ -67,7 +67,7 @@ impl EmuDisplay {
 
             scratch.store_be(*byte);
 
-            for i in 0..8 {
+            for i in 0..offset {
                 let mut bit = buf.get_mut(i).unwrap();
 
                 if scratch[i] && *bit {

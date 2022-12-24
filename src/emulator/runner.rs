@@ -20,6 +20,9 @@ impl Emulator {
                     self.refresh_display();
                 }
 
+                self.timer = self.timer.wrapping_sub(1);
+                self.s_timer = self.s_timer.wrapping_sub(1);
+
                 display_tick = Instant::now();
             }
 
@@ -48,6 +51,8 @@ impl Emulator {
             let n = n4;
             let nn = byte2;
             let nnn = ((n2 as usize) << 8) + byte2 as usize;
+
+            println!("{:x}{:x}{:x}{:x}", n1, n2, n3, n4);
 
             match (n1, n2, n3, n4) {
                 (0x0, 0x0, 0xE, 0x0) => {
@@ -188,9 +193,7 @@ impl Emulator {
                 }
                 (0xE, _, 0x9, 0xE) => {
                     // EX9E - Skip if key pressed
-                    dbg!(self.reg[x]);
                     if self.scan_key(self.reg[x]) {
-                        println!("pressed");
                         self.counter += 2;
                     }
                 }
@@ -200,13 +203,13 @@ impl Emulator {
                         self.counter += 2;
                     }
                 }
-                (0xF, _, 0x0, 0x7) => {
-                    // FX07 - Set VX to delay timer
-                    self.reg[x] = self.timer;
-                }
                 (0xF, _, 0x1, 0x5) => {
                     // FX15 - Set delay timer to VX
                     self.timer = self.reg[x];
+                }
+                (0xF, _, 0x0, 0x7) => {
+                    // FX07 - Set VX to delay timer
+                    self.reg[x] = self.timer;
                 }
                 (0xF, _, 0x1, 0x8) => {
                     // FX18 - Set sound timer to VX
@@ -214,13 +217,14 @@ impl Emulator {
                 }
                 (0xF, _, 0x0, 0xA) => {
                     // FX0A - Get key
-                    // blocks until he key is pressed
+                    // blocks until any key is pressed, then stores that key in VX
                     // this is done by just looping back to this same instruction
-                    println!("{:02x}", self.reg[x]);
+                    let scanned = self.scan_any();
 
-                    if !self.scan_key(self.reg[x]) {
-                        self.counter -= 2;
-                    }
+                    match scanned {
+                        Some(code) => self.reg[x] = code,
+                        None => self.counter -= 2,
+                    };
                 }
                 (0xF, _, 0x1, 0xE) => {
                     // FX1E - Add to index
@@ -270,7 +274,9 @@ impl Emulator {
                         self.reg[i] = moving[i];
                     }
                 }
-                _ => continue, // ignore unknown instructions
+                _ => {
+                    continue;
+                } // ignore unknown instructions
             }
         }
     }

@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-
 use super::Emulator;
+use bimap::BiMap;
 use minifb::Key;
 
 impl Emulator {
-    fn get_keycodes() -> HashMap<u8, Key> {
-        HashMap::from([
+    fn get_keycodes() -> BiMap<u8, Key> {
+        BiMap::from_iter([
             (0x0, Key::X),
             (0x1, Key::Key1),
             (0x2, Key::Key2),
@@ -27,16 +26,26 @@ impl Emulator {
 
     pub fn scan_key(&self, key: u8) -> bool {
         let keycodes = Self::get_keycodes();
-        let Some(key) = keycodes.get(&key) else { return false };
+        let Some(key) = keycodes.get_by_left(&key) else { return false };
 
         self.window.is_key_down(*key)
     }
 
     pub fn scan_any(&self) -> Option<u8> {
         let keycodes = Self::get_keycodes();
+        let pressed = self.window.get_keys();
 
-        for (code, key) in keycodes.iter() {
-            if self.window.is_key_down(*key) {
+        dbg!(self.scan_key(0x3));
+
+        let key = keycodes.get_by_left(&0x3);
+
+        dbg!(key);
+        dbg!(&pressed);
+
+        for key in pressed {
+            dbg!(key);
+
+            if let Some(code) = keycodes.get_by_right(&key) {
                 return Some(*code);
             }
         }

@@ -52,8 +52,6 @@ impl Emulator {
             let nn = byte2;
             let nnn = ((n2 as usize) << 8) + byte2 as usize;
 
-            println!("{:x}{:x}{:x}{:x}", n1, n2, n3, n4);
-
             match (n1, n2, n3, n4) {
                 (0x0, 0x0, 0xE, 0x0) => {
                     // 00E0 - Clear screen
@@ -203,17 +201,9 @@ impl Emulator {
                         self.counter += 2;
                     }
                 }
-                (0xF, _, 0x1, 0x5) => {
-                    // FX15 - Set delay timer to VX
-                    self.timer = self.reg[x];
-                }
                 (0xF, _, 0x0, 0x7) => {
                     // FX07 - Set VX to delay timer
                     self.reg[x] = self.timer;
-                }
-                (0xF, _, 0x1, 0x8) => {
-                    // FX18 - Set sound timer to VX
-                    self.s_timer = self.reg[x];
                 }
                 (0xF, _, 0x0, 0xA) => {
                     // FX0A - Get key
@@ -225,6 +215,14 @@ impl Emulator {
                         Some(code) => self.reg[x] = code,
                         None => self.counter -= 2,
                     };
+                }
+                (0xF, _, 0x1, 0x5) => {
+                    // FX15 - Set delay timer to VX
+                    self.timer = self.reg[x];
+                }
+                (0xF, _, 0x1, 0x8) => {
+                    // FX18 - Set sound timer to VX
+                    self.s_timer = self.reg[x];
                 }
                 (0xF, _, 0x1, 0xE) => {
                     // FX1E - Add to index

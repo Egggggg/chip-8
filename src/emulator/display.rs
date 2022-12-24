@@ -57,7 +57,7 @@ impl EmuDisplay {
 
         for byte in sprite {
             let pos = x as usize + y as usize * dim.0 as usize;
-            let offset = if x < dim.0 - 4 { 4 } else { dim.0 - x } as usize;
+            let offset = if x < dim.0 - 8 { 8 } else { dim.0 - x } as usize;
 
             // get the slice of memory from the
             let buf = match self {
@@ -65,10 +65,9 @@ impl EmuDisplay {
                 Self::SuperChip(buf) => buf.get_mut(pos..pos + offset).unwrap(),
             };
 
-            println!("display: {:02x}", byte);
             scratch.store_be(*byte);
 
-            for i in 0..4 {
+            for i in 0..8 {
                 let mut bit = buf.get_mut(i).unwrap();
 
                 if scratch[i] && *bit {

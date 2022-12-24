@@ -1,4 +1,7 @@
-use super::Emulator;
+use rand::Rng;
+
+use super::{memory::FONT_ADDR, Emulator};
+
 use std::time::Instant;
 
 impl Emulator {
@@ -52,10 +55,38 @@ impl Emulator {
                     self.display.clear();
                     display_changed = true;
                 }
+                (0x0, 0x0, 0xE, 0xE) => {
+                    // 00EE - End subroutine
+                    // move to the last address on the stack
+                    self.counter = self.stack.pop_back().unwrap_or(self.counter);
+                }
                 (0x1, ..) => {
                     // 1NNN - Jump
                     // Jump to memory address `NNN`
                     self.counter = nnn;
+                }
+                (0x2, ..) => {
+                    // 2NNN - Start subroutine
+                    self.stack.push_back(self.counter);
+                    self.counter = nnn;
+                }
+                (0x3, ..) => {
+                    // 3XNN - Skip if equal to immediate
+                    if self.reg[x] == nn {
+                        self.counter += 2;
+                    }
+                }
+                (0x4, ..) => {
+                    // 4XNN - Skip if not equal to immediate
+                    if self.reg[x] != nn {
+                        self.counter += 2;
+                    }
+                }
+                (0x5, _, _, 0x0) => {
+                    // 5XY0 - Skip if equal
+                    if self.reg[x] == self.reg[y] {
+                        self.counter += 2;
+                    }
                 }
                 (0x6, ..) => {
                     // 6XNN - Set register
@@ -67,6 +98,77 @@ impl Emulator {
                     // Add `NN` to register `VX`
                     self.reg[x] = self.reg[x].wrapping_add(nn);
                 }
+                (0x8, _, _, 0x0) => {
+                    // 8XY0 - Set to other register
+                    self.reg[x] = self.reg[y];
+                }
+                (0x8, _, _, 0x1) => {
+                    // 8XY1 - OR
+                    self.reg[x] |= self.reg[y];
+                }
+                (0x8, _, _, 0x2) => {
+                    // 8XY2 - AND
+                    self.reg[x] &= self.reg[y];
+                }
+                (0x8, _, _, 0x3) => {
+                    // 8XY3 - XOR
+                    self.reg[x] ^= self.reg[y];
+                }
+                (0x8, _, _, 0x4) => {
+                    // 8XY4 - Add registers
+                    self.reg[x] = self.reg[x].wrapping_add(self.reg[y]);
+                }
+                (0x8, _, _, 0x5) => {
+                    // 8XY5 - Subtract Y from X
+                    // set carry flag if overflowed
+                    self.reg[0xF] = if self.reg[y] > self.reg[x] { 1 } else { 0 };
+                    self.reg[x] = self.reg[x].wrapping_sub(self.reg[y]);
+                }
+                (0x8, _, _, 0x6) => {
+                    // 8XY6 - Shift right
+                    // ips (in place shifting) means x should be shifted.
+                    // without it, y will be moved into x before being shifted
+                    if !self.ips {
+                        self.reg[x] = self.reg[y];
+                    }
+
+                    self.reg[0xF] = self.reg[x] & 0b1;
+                    self.reg[x] >>= 1;
+                }
+                (0x8, _, _, 0x7) => {
+                    // 8XY7 - Subtract X from Y
+                    // set carry flag if overflowed
+                    self.reg[0xF] = if self.reg[x] > self.reg[y] { 1 } else { 0 };
+                    self.reg[y] = self.reg[y].wrapping_sub(self.reg[x]);
+                }
+                (0x8, _, _, 0xE) => {
+                    // 8XYE - Shift left
+                    // ips (in place shifting) means x should be shifted.
+                    // without it, y will be moved into x before being shifted
+                    if !self.ips {
+                        self.reg[x] = self.reg[y];
+                    }
+
+                    self.reg[0xF] = self.reg[x] & 0b1000_0000;
+                    self.reg[x] <<= 1;
+                }
+                (0x9, _, _, 0x0) => {
+                    // 9XY0 - Skip if not equal
+                    if self.reg[x] != self.reg[y] {
+                        self.counter += 2;
+                    }
+                }
+                (0xB, ..) => {
+                    // BNNN - Jump with offset
+                    // this jumps to V0 offset by NNN bytes
+                    self.counter = self.reg[0] as usize + nnn;
+                }
+                (0xC, ..) => {
+                    // CXNN - Random
+                    // a random u8 is generated and ANDed together with nn, then put in VX
+                    self.reg[x] = nn & rng.gen::<u8>();
+                }
+
                 (0xA, ..) => {
                     // ANNN - Set index
                     // Set index register `I` to `NNN`
@@ -83,6 +185,90 @@ impl Emulator {
 
                     self.reg[0xF] = self.display.draw(sprite, coords);
                     display_changed = true;
+                }
+                (0xE, _, 0x9, 0xE) => {
+                    // EX9E - Skip if key pressed
+                    dbg!(self.reg[x]);
+                    if self.scan_key(self.reg[x]) {
+                        println!("pressed");
+                        self.counter += 2;
+                    }
+                }
+                (0xE, _, 0xA, 0x1) => {
+                    // EXA1 - Skip if key not pressed
+                    if !self.scan_key(self.reg[x]) {
+                        self.counter += 2;
+                    }
+                }
+                (0xF, _, 0x0, 0x7) => {
+                    // FX07 - Set VX to delay timer
+                    self.reg[x] = self.timer;
+                }
+                (0xF, _, 0x1, 0x5) => {
+                    // FX15 - Set delay timer to VX
+                    self.timer = self.reg[x];
+                }
+                (0xF, _, 0x1, 0x8) => {
+                    // FX18 - Set sound timer to VX
+                    self.s_timer = self.reg[x];
+                }
+                (0xF, _, 0x0, 0xA) => {
+                    // FX0A - Get key
+                    // blocks until he key is pressed
+                    // this is done by just looping back to this same instruction
+                    println!("{:02x}", self.reg[x]);
+
+                    if !self.scan_key(self.reg[x]) {
+                        self.counter -= 2;
+                    }
+                }
+                (0xF, _, 0x1, 0xE) => {
+                    // FX1E - Add to index
+                    // adds VX to I, setting the carry flag if I leaves memory
+                    self.index += self.reg[x] as usize;
+                    self.reg[0xF] = if self.index > 0xFFF { 1 } else { 0 };
+                }
+                (0xF, _, 0x2, 0x9) => {
+                    // FX29 - Font character
+                    // sets I to the location of the character in the last nibble of VX
+                    let to = self.reg[x] & 0x0F;
+
+                    // multiply by 5 because each character contains 5 bytes
+                    self.index = FONT_ADDR + to as usize * 5;
+                }
+                (0xF, _, 0x3, 0x3) => {
+                    // FX33 - Binary coded decimal conversion
+                    // stores the decimal representation of VX across I, I+1, and I+2
+                    // one digit per byte
+                    let val = self.reg[x];
+
+                    // 123
+                    // ones = 3
+                    // tens = 2
+                    // hundreds = 1
+                    let hundreds = val / 100;
+                    let tens = (val % 100) / 10;
+                    let ones = val % 10;
+
+                    self.set_mem(&[hundreds, tens, ones]);
+                }
+                (0xF, _, 0x5, 0x5) => {
+                    // FX55 - Store memory
+                    // stores V0 through VX in memory
+                    let block = &self.reg[0..=x];
+                    let mut moving: Vec<u8> = vec![0; x + 1];
+
+                    moving.copy_from_slice(block);
+                    self.set_mem(moving);
+                }
+                (0xF, _, 0x6, 0x5) => {
+                    // FX65 - Load memory
+                    // loads X bytes from memory into registers V0-VX
+                    let moving = self.load_mem(x);
+
+                    for i in 0..=x {
+                        self.reg[i] = moving[i];
+                    }
                 }
                 _ => continue, // ignore unknown instructions
             }

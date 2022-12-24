@@ -1,7 +1,7 @@
 use super::Emulator;
 
 // the address to store the font at
-const FONT_ADDR: usize = 0x50;
+pub const FONT_ADDR: usize = 0x50;
 
 // the font is 80 bytes (5 bytes by 16 chars)
 const FONT_SIZE: usize = 80;
@@ -50,5 +50,23 @@ impl Emulator {
         for i in 0..script.len() {
             self.memory[SCRIPT_ADDR + i] = script[i];
         }
+    }
+
+    pub fn set_mem(&mut self, block: impl AsRef<[u8]>) {
+        let block = block.as_ref();
+
+        for i in 0..block.len() {
+            self.memory[self.index + i] = block[i];
+        }
+    }
+
+    pub fn load_mem(&self, len: usize) -> Vec<u8> {
+        let mut out = Vec::new();
+
+        for i in 0..=len {
+            out.push(self.memory[self.index + i]);
+        }
+
+        out
     }
 }

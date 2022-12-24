@@ -1,4 +1,5 @@
 mod display;
+mod input;
 mod memory;
 mod runner;
 

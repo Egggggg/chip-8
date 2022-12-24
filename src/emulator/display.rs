@@ -65,6 +65,7 @@ impl EmuDisplay {
                 Self::SuperChip(buf) => buf.get_mut(pos..pos + offset).unwrap(),
             };
 
+            println!("display: {:02x}", byte);
             scratch.store_be(*byte);
 
             for i in 0..4 {
@@ -97,19 +98,13 @@ impl Emulator {
         match self.display {
             EmuDisplay::Chip8(buf) => {
                 let len = 64 * 32;
-                let mut output: Vec<u32> = vec![0; len * 4];
+                let mut output: Vec<u32> = vec![0; len];
 
                 for i in 0..len {
-                    let positions = self.scale_pixel(i, 64, 4);
-
                     if buf[i] {
-                        for pos in positions {
-                            output[pos] = full;
-                        }
+                        output[i] = full;
                     } else {
-                        for pos in positions {
-                            output[pos] = empty;
-                        }
+                        output[i] = empty;
                     }
                 }
 
@@ -119,19 +114,13 @@ impl Emulator {
             }
             EmuDisplay::SuperChip(buf) => {
                 let len = 128 * 64;
-                let mut output: Vec<u32> = vec![0; len * 4];
+                let mut output: Vec<u32> = vec![0; len];
 
                 for i in 0..len {
-                    let positions = self.scale_pixel(i, 128, 4);
-
                     if buf[i] {
-                        for pos in positions {
-                            output[pos] = full;
-                        }
+                        output[i] = full;
                     } else {
-                        for pos in positions {
-                            output[pos] = empty;
-                        }
+                        output[i] = empty;
                     }
                 }
 
@@ -140,17 +129,5 @@ impl Emulator {
                     .unwrap();
             }
         }
-    }
-
-    fn scale_pixel(&self, index: usize, width: usize, scale: usize) -> Vec<usize> {
-        let mut out: Vec<usize> = Vec::new();
-
-        for x in 0..scale {
-            for y in 0..scale {
-                out.push(index + (x * scale) + (y * width));
-            }
-        }
-
-        out
     }
 }
